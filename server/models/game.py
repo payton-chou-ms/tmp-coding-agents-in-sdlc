@@ -19,19 +19,44 @@ class Game(BaseModel):
     publisher = relationship("Publisher", back_populates="games")
     
     @validates('title')
-    def validate_name(self, key, name):
+    def validate_name(self, key: str, name: str) -> str:
+        """Validate that the game title meets minimum length requirements.
+
+        Args:
+            key: The attribute key being validated (provided by SQLAlchemy).
+            name: The title value to validate.
+
+        Returns:
+            str: The validated title string.
+        """
         return self.validate_string_length('Game title', name, min_length=2)
     
     @validates('description')
-    def validate_description(self, key, description):
+    def validate_description(self, key: str, description: str) -> str:
+        """Validate that the game description meets minimum length requirements.
+
+        Args:
+            key: The attribute key being validated (provided by SQLAlchemy).
+            description: The description value to validate.
+
+        Returns:
+            str: The validated description string, or None if None was provided.
+        """
         if description is not None:
             return self.validate_string_length('Description', description, min_length=10, allow_none=True)
         return description
     
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the Game instance."""
         return f'<Game {self.title}, ID: {self.id}>'
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """Serialize the Game instance to a dictionary.
+
+        Returns:
+            dict: A dictionary containing the game's id, title, description,
+                  publisher, category, and starRating.
+        """
         return {
             'id': self.id,
             'title': self.title,
