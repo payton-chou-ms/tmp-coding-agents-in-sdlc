@@ -16,6 +16,11 @@ This is a crowdfunding platform for games with a developer theme. The applicatio
 ### Code formatting requirements
 
 - When writing Python, you must use type hints for return values and function parameters.
+- Follow PEP 257 conventions for Python docstrings:
+    - All public modules, classes, functions, and methods must have docstrings.
+    - Use a one-line docstring for simple functions that can be described in a single sentence.
+    - Use a multi-line docstring for functions with complex behavior, parameters, or return values. Start with a summary line, followed by a blank line, then detailed description.
+    - Docstrings must use triple double-quotes (`"""`).
 
 ### Python and Flask Patterns
 
