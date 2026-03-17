@@ -1,6 +1,7 @@
-from flask import jsonify, Response, Blueprint
+from flask import jsonify, request, Response, Blueprint
 from models import db, Game, Publisher, Category
 from sqlalchemy.orm import Query
+from sqlalchemy.exc import SQLAlchemyError
 
 # Create a Blueprint for games routes
 games_bp = Blueprint('games', __name__)
@@ -39,3 +40,91 @@ def get_game(id: int) -> tuple[Response, int] | Response:
     game = game_query.to_dict()
     
     return jsonify(game)
+
+@games_bp.route('/api/games', methods=['POST'])
+def create_game() -> tuple[Response, int]:
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    # Validate required fields
+    required_fields = ['title', 'description', 'publisher_id', 'category_id']
+    missing = [f for f in required_fields if f not in data]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    # Validate publisher and category exist
+    publisher = db.session.get(Publisher, data['publisher_id'])
+    if not publisher:
+        return jsonify({"error": "Publisher not found"}), 404
+
+    category = db.session.get(Category, data['category_id'])
+    if not category:
+        return jsonify({"error": "Category not found"}), 404
+
+    try:
+        game = Game(
+            title=data['title'],
+            description=data['description'],
+            publisher_id=data['publisher_id'],
+            category_id=data['category_id'],
+            star_rating=data.get('star_rating')
+        )
+        db.session.add(game)
+        db.session.commit()
+        created = get_games_base_query().filter(Game.id == game.id).first()
+        if not created:
+            return jsonify({"error": "Failed to retrieve created game"}), 500
+        return jsonify(created.to_dict()), 201
+    except (ValueError, SQLAlchemyError) as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+@games_bp.route('/api/games/<int:id>', methods=['PUT'])
+def update_game(id: int) -> tuple[Response, int]:
+    game = db.session.get(Game, id)
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    # Validate publisher if provided
+    if 'publisher_id' in data:
+        publisher = db.session.get(Publisher, data['publisher_id'])
+        if not publisher:
+            return jsonify({"error": "Publisher not found"}), 404
+
+    # Validate category if provided
+    if 'category_id' in data:
+        category = db.session.get(Category, data['category_id'])
+        if not category:
+            return jsonify({"error": "Category not found"}), 404
+
+    try:
+        for field in ['title', 'description', 'publisher_id', 'category_id', 'star_rating']:
+            if field in data:
+                setattr(game, field, data[field])
+        db.session.commit()
+        updated = get_games_base_query().filter(Game.id == game.id).first()
+        if not updated:
+            return jsonify({"error": "Failed to retrieve updated game"}), 500
+        return jsonify(updated.to_dict()), 200
+    except (ValueError, SQLAlchemyError) as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+@games_bp.route('/api/games/<int:id>', methods=['DELETE'])
+def delete_game(id: int) -> tuple[Response, int]:
+    game = db.session.get(Game, id)
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+
+    try:
+        db.session.delete(game)
+        db.session.commit()
+        return jsonify({"message": "Game deleted successfully"}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
