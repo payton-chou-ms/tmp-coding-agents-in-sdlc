@@ -36,6 +36,8 @@ class TestGamesRoutes(unittest.TestCase):
     
     # API paths
     GAMES_API_PATH: str = '/api/games'
+    CATEGORIES_API_PATH: str = '/api/categories'
+    PUBLISHERS_API_PATH: str = '/api/publishers'
 
     def setUp(self) -> None:
         """Set up test database and seed data"""
@@ -167,6 +169,114 @@ class TestGamesRoutes(unittest.TestCase):
         # Assert
         self.assertEqual(response.status_code, 404)
         self.assertEqual(data['error'], "Game not found")
+
+    def test_filter_games_by_category(self) -> None:
+        """Test filtering games by category_id returns only matching games"""
+        # Get all categories to find the Strategy category id
+        response = self.client.get(self.CATEGORIES_API_PATH)
+        categories = self._get_response_data(response)
+        strategy_category = next(c for c in categories if c['name'] == 'Strategy')
+
+        # Act: filter by Strategy category
+        response = self.client.get(f'{self.GAMES_API_PATH}?category_id={strategy_category["id"]}')
+        data = self._get_response_data(response)
+
+        # Assert: only games with Strategy category are returned
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['title'], 'Pipeline Panic')
+        self.assertEqual(data[0]['category']['name'], 'Strategy')
+
+    def test_filter_games_by_category_no_results(self) -> None:
+        """Test filtering by a category_id that has no games returns empty list"""
+        # Use a category_id that does not exist
+        response = self.client.get(f'{self.GAMES_API_PATH}?category_id=9999')
+        data = self._get_response_data(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data, [])
+
+    def test_filter_games_by_publisher(self) -> None:
+        """Test filtering games by publisher_id returns only matching games"""
+        # Get all publishers to find the Scrum Masters publisher id
+        response = self.client.get(self.PUBLISHERS_API_PATH)
+        publishers = self._get_response_data(response)
+        scrum_publisher = next(p for p in publishers if p['name'] == 'Scrum Masters')
+
+        # Act: filter by Scrum Masters publisher
+        response = self.client.get(f'{self.GAMES_API_PATH}?publisher_id={scrum_publisher["id"]}')
+        data = self._get_response_data(response)
+
+        # Assert: only games from Scrum Masters are returned
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['title'], 'Agile Adventures')
+        self.assertEqual(data[0]['publisher']['name'], 'Scrum Masters')
+
+    def test_filter_games_by_publisher_no_results(self) -> None:
+        """Test filtering by a publisher_id that has no games returns empty list"""
+        response = self.client.get(f'{self.GAMES_API_PATH}?publisher_id=9999')
+        data = self._get_response_data(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data, [])
+
+    def test_filter_games_by_category_and_publisher(self) -> None:
+        """Test filtering games by both category_id and publisher_id returns matching games"""
+        # Get IDs for category=Strategy, publisher=DevGames Inc
+        categories_response = self._get_response_data(self.client.get(self.CATEGORIES_API_PATH))
+        publishers_response = self._get_response_data(self.client.get(self.PUBLISHERS_API_PATH))
+
+        strategy_id = next(c['id'] for c in categories_response if c['name'] == 'Strategy')
+        devgames_id = next(p['id'] for p in publishers_response if p['name'] == 'DevGames Inc')
+
+        # Act: filter by both category and publisher
+        response = self.client.get(f'{self.GAMES_API_PATH}?category_id={strategy_id}&publisher_id={devgames_id}')
+        data = self._get_response_data(response)
+
+        # Assert: Pipeline Panic matches both filters
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['title'], 'Pipeline Panic')
+
+    def test_filter_games_combined_no_results(self) -> None:
+        """Test filtering by mismatched category and publisher returns empty list"""
+        # Strategy category but Scrum Masters publisher — no game matches both
+        categories_response = self._get_response_data(self.client.get(self.CATEGORIES_API_PATH))
+        publishers_response = self._get_response_data(self.client.get(self.PUBLISHERS_API_PATH))
+
+        strategy_id = next(c['id'] for c in categories_response if c['name'] == 'Strategy')
+        scrum_id = next(p['id'] for p in publishers_response if p['name'] == 'Scrum Masters')
+
+        response = self.client.get(f'{self.GAMES_API_PATH}?category_id={strategy_id}&publisher_id={scrum_id}')
+        data = self._get_response_data(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data, [])
+
+    def test_get_categories_success(self) -> None:
+        """Test that the categories endpoint returns all categories"""
+        response = self.client.get(self.CATEGORIES_API_PATH)
+        data = self._get_response_data(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), len(self.TEST_DATA["categories"]))
+        category_names = [c['name'] for c in data]
+        for cat in self.TEST_DATA["categories"]:
+            self.assertIn(cat['name'], category_names)
+
+    def test_get_publishers_success(self) -> None:
+        """Test that the publishers endpoint returns all publishers"""
+        response = self.client.get(self.PUBLISHERS_API_PATH)
+        data = self._get_response_data(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), len(self.TEST_DATA["publishers"]))
+        publisher_names = [p['name'] for p in data]
+        for pub in self.TEST_DATA["publishers"]:
+            self.assertIn(pub['name'], publisher_names)
 
 if __name__ == '__main__':
     unittest.main()
