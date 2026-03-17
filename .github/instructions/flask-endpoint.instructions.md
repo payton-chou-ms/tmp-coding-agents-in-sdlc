@@ -4,6 +4,7 @@
 
 - Endpoints are created in Flask using blueprints
 - Create a centralized function for accessing data
+- All public functions and route handlers must have docstrings following PEP 257 conventions
 - All endpoints require tests
     - Use the `unittest` module for testing
     - All tests must pass

@@ -9,3 +9,4 @@ applyTo: 'server/tests/test_*.py'
 - Use a in-memory SQLite when testing data
 - Utilize setup and teardown functions to create and destroy the database for testing
     - Ensure the database is properly closed with `db.engine.dispose()`
+- All test methods, helper methods, and setup/teardown methods must have docstrings describing their purpose, following PEP 257 conventions
